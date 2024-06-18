@@ -1,9 +1,8 @@
 pub mod dto {
     use std::fmt;
 
-    use serde::{ser::SerializeStruct, Deserialize, Serialize};
+    use serde::{ser::SerializeStruct, Serialize};
     use serde_json::Value;
-    use serde_repr::{Deserialize_repr, Serialize_repr};
 
     const OLED_COLOR_BLACK: u16 = 0x0000;
     const OLED_COLOR_BLUE: u16 = 0x001F;
@@ -94,12 +93,12 @@ pub mod dto {
             let mut state = s.serialize_struct("OutMessage", 2)?;
             match self {
                 Self::Configuration { message } => {
-                    state.serialize_field("type", &1);
-                    state.serialize_field("message", &message);
+                    state.serialize_field("type", &1)?;
+                    state.serialize_field("message", &message)?;
                 }
                 Self::Data { message } => {
-                    state.serialize_field("type", &2);
-                    state.serialize_field("message", &message);
+                    state.serialize_field("type", &2)?;
+                    state.serialize_field("message", &message)?;
                 }
             }
 
@@ -110,6 +109,7 @@ pub mod dto {
     pub enum InMessage {
         NeedGaugeConfig {},
         NeedGaugeData {},
+        Debug { message: String },
     }
 
     impl<'de> serde::Deserialize<'de> for InMessage {
@@ -119,6 +119,13 @@ pub mod dto {
             Ok(match value.get("type").and_then(Value::as_u64).unwrap() {
                 1 => InMessage::NeedGaugeConfig {},
                 2 => InMessage::NeedGaugeData {},
+                3 => InMessage::Debug {
+                    message: value
+                        .get("message")
+                        .and_then(|v| Some(v.to_string()))
+                        .or(Some(String::new()))
+                        .unwrap(),
+                },
                 type_ => panic!("unsupported type {:?}", type_),
             })
         }
@@ -132,6 +139,9 @@ pub mod dto {
                 }
                 Self::NeedGaugeData {} => {
                     return write!(f, "NeedGaugeData");
+                }
+                Self::Debug { message } => {
+                    return write!(f, "Debug: {}", message);
                 }
             }
         }
